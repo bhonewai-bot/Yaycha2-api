@@ -1,8 +1,9 @@
 const express = require("express");
 const router = express.Router();
 
+const { auth, isOwner} = require("../middlewares/auth");
+
 const prisma = require("../prismaClient");
-const {json} = require("express");
 
 router.get("/posts", async (req, res) => {
     try {
@@ -15,7 +16,9 @@ router.get("/posts", async (req, res) => {
            take: 20
        });
 
-       res.json(data);
+        setTimeout(() => {
+            res.json(data);
+        }, 2000);
     } catch (e) {
         res.status(500).json({ error: e });
     }
@@ -43,7 +46,66 @@ router.get("/posts/:id", async (req, res) => {
     }
 });
 
-router.delete("/posts/:id", async (req, res) => {
+router.post("/posts", auth, async (req, res) => {
+    const { content } = req.body;
+
+    try {
+        if (!content) {
+            return res.status(400).json({ message: "content required" });
+        }
+
+        const user = res.locals.user;
+
+        const post = await prisma.post.create({
+            data: {
+                content,
+                userId: user.id
+            }
+        });
+
+        const data = await prisma.post.findUnique({
+            where: { id: Number(post.id) },
+            include: {
+                user: true,
+                comments: {
+                    include: { user: true }
+                }
+            }
+        });
+
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ error: e });
+    }
+});
+
+router.post("/comments", auth, async (req, res, next) => {
+    const { content, postId } = req.body;
+
+    try {
+        if (!content || !postId) {
+            return res.json(400).json({ message: "content and postId required" });
+        }
+        
+        const user = res.locals.user;
+
+        const comment = await prisma.comment.create({
+            data: {
+                content,
+                userId: Number(user.id),
+                postId: Number(postId),
+            }
+        });
+
+        comment.user = user;
+
+        res.json(comment);
+    } catch (e) {
+        res.status(500).json({ error: e })
+    }
+});
+
+router.delete("/posts/:id", auth, isOwner("post"), async (req, res) => {
     const { id } = req.params;
     try {
         await prisma.comment.deleteMany({
@@ -60,7 +122,7 @@ router.delete("/posts/:id", async (req, res) => {
     }
 })
 
-router.delete("/comments/:id", async (req, res) => {
+router.delete("/comments/:id", auth, isOwner("comment"), async (req, res) => {
     const { id } = req.params;
 
     try {
