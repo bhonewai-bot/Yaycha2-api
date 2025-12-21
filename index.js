@@ -1,6 +1,8 @@
 const express = require("express");
 const app = express();
 
+require("express-ws")(app);
+
 const cors = require("cors");
 app.use(cors());
 
@@ -9,8 +11,10 @@ app.use(express.urlencoded({ extended: true }));
 
 const { contentRouter } = require("./routers/content");
 const {userRouter} = require("./routers/user");
+const {wsRouter} = require("./routers/ws");
 app.use("/content", contentRouter);
 app.use("/", userRouter);
+app.use("/", wsRouter);
 
 app.get("/info", (req, res) => {
     res.json({ msg: "Yaycha API" });
