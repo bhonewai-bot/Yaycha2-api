@@ -124,4 +124,23 @@ router.delete("/unfollow/:id", auth, async (req, res) => {
     res.json({ message: `Unfollow user ${user.id}` });
 });
 
+router.get("/search", async (req, res) => {
+    const { q } = req.query;
+
+    const data = await prisma.user.findMany({
+        where: {
+            name: {
+                contains: q
+            }
+        },
+        include: {
+            following: true,
+            followers: true
+        },
+        take: 20
+    });
+
+    res.json(data);
+});
+
 module.exports = { userRouter: router };
