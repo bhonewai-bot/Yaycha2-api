@@ -18,9 +18,7 @@ router.get("/posts", async (req, res) => {
            take: 20
        });
 
-        setTimeout(() => {
-            res.json(data);
-        }, 2000);
+       res.json(data);
     } catch (e) {
         res.status(500).json({ error: e });
     }
