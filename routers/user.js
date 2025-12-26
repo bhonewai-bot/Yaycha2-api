@@ -106,7 +106,6 @@ router.post("/follow/:id", auth, async (req, res) => {
             followingId: Number(id),
         }
     });
-
     res.json(data);
 });
 

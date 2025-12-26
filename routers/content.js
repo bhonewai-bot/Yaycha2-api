@@ -193,10 +193,14 @@ router.post("/like/comments/:id", auth, async (req, res) => {
         }
     });
 
+    const comment = await prisma.comment.findUnique({
+        where: { id: Number(id) }
+    });
+
     await addNoti({
         type: "like",
         content: "likes your comment",
-        postId: id,
+        postId: comment.postId,
         userId: user.id
     })
 
@@ -290,7 +294,9 @@ router.get("/notis", auth, async (req, res) => {
     const user = res.locals.user;
     const notis = await prisma.noti.findMany({
         where: {
-            userId: Number(user.id)
+            post: {
+                userId: Number(user.id)
+            }
         },
         include: {
             user: true
@@ -304,9 +310,8 @@ router.get("/notis", auth, async (req, res) => {
 
 router.put("/notis/read/:id", auth, async (req, res) => {
     const { id } = req.params;
-    const user = res.locals.user;
 
-    await prisma.noti.update({
+    const noti = await prisma.noti.update({
         where: {
             id: Number(id)
         },
@@ -314,6 +319,8 @@ router.put("/notis/read/:id", auth, async (req, res) => {
             read: true
         }
     });
+
+    res.json(noti);
 });
 
 router.put("/notis/read", auth, async (req, res) => {

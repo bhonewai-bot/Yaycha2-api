@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
+const expressWs = require("express-ws");
 const jwt = require("jsonwebtoken");
+
+expressWs(router);
 
 const secret = process.env.JWT_SECRET;
 
@@ -18,7 +21,7 @@ router.ws("/subscribe", (ws, req) => {
 
             clients.push({ userId: user.id, ws });
 
-            console.log(`WS: Client added: ${user.id}`);
+            console.log(`WS: Client added:${user.id}`);
         });
     });
 });

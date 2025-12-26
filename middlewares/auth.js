@@ -1,8 +1,6 @@
-const express = require("express");
 const jwt = require("jsonwebtoken");
 
 const prisma = require("../prismaClient");
-const {locals} = require("express/lib/application");
 
 function auth(req, res, next) {
     const { authorization } = req.headers;

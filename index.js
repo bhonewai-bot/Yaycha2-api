@@ -3,6 +3,8 @@ const app = express();
 
 require("express-ws")(app);
 
+const prisma = require("./prismaClient");
+
 const cors = require("cors");
 app.use(cors());
 
@@ -10,15 +12,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const { contentRouter } = require("./routers/content");
-const {userRouter} = require("./routers/user");
-const {wsRouter} = require("./routers/ws");
 app.use("/content", contentRouter);
-app.use("/", userRouter);
-app.use("/", wsRouter);
 
-app.get("/info", (req, res) => {
-    res.json({ msg: "Yaycha API" });
-});
+const { userRouter } = require("./routers/user");
+app.use("/", userRouter);
+
+const { wsRouter} = require("./routers/ws");
+app.use("/", wsRouter);
 
 const server = app.listen(8000,() => {
     console.log("Yaycha API started at 8000...");
@@ -33,4 +33,4 @@ const gracefulShutdown = async () => {
 };
 
 process.on("SIGTERM", gracefulShutdown);
-process.on("SIGINT", gracefulShutdown);
+// process.on("SIGINT", gracefulShutdown);
