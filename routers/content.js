@@ -6,6 +6,15 @@ const { auth, isOwner} = require("../middlewares/auth");
 const prisma = require("../prismaClient");
 const {clients} = require("./ws");
 
+function broadcastToAll(event) {
+    clients.forEach(client => {
+        if (client.ws.readyState === 1) {
+            client.ws.send(JSON.stringify({ event }));
+            console.log(`WS: event sent to ${client.userId}: ${event}`);
+        }
+    })
+}
+
 router.get("/posts", async (req, res) => {
     try {
        const data = await prisma.post.findMany({
@@ -75,6 +84,8 @@ router.post("/posts", auth, async (req, res) => {
             }
         });
 
+        broadcastToAll("posts");
+
         res.json(data);
     } catch (e) {
         res.status(500).json({ error: e });
@@ -92,6 +103,8 @@ router.delete("/posts/:id", auth, isOwner("post"), async (req, res) => {
             where: { id: Number(id) }
         });
 
+        broadcastToAll("posts");
+
         res.sendStatus(204);
     } catch (e) {
         res.status(500).json({ error: e });
@@ -105,6 +118,12 @@ router.delete("/comments/:id", auth, isOwner("comment"), async (req, res) => {
         await prisma.comment.delete({
             where: { id: Number(id) }
         });
+
+        await prisma.post.delete({
+            where: { id: Number(id) }
+        });
+
+        broadcastToAll("posts");
 
         res.sendStatus(204);
     } catch (e) {
@@ -133,11 +152,21 @@ router.post("/comments", auth, async (req, res, next) => {
         comment.user = user;
 
         await addNoti({
-            type: "Comment",
+            type: "comment",
             content: "reply your post",
             postId,
             userId: user.id
         });
+
+        broadcastToAll("posts");
+        clients.forEach(client => {
+            if (client.ws.readyState === 1) {
+                client.ws.send(JSON.stringify({
+                    event: "comments",
+                    postId: Number(postId)
+                }));
+            }
+        })
 
         res.json(comment);
     } catch (e) {
@@ -163,6 +192,16 @@ router.post("/like/posts/:id", auth, async (req, res) => {
         userId: user.id
     });
 
+    broadcastToAll("posts");
+    clients.forEach(client => {
+        if (client.ws.readyState === 1) {
+            client.ws.send(JSON.stringify({
+                event: "comments",
+                postId: Number(id)
+            }));
+        }
+    });
+
     res.json({ like });
 });
 
@@ -174,6 +213,16 @@ router.delete("/unlike/posts/:id", auth, async (req, res) => {
         where: {
             postId: Number(id),
             userId: Number(user.id)
+        }
+    });
+
+    broadcastToAll("posts");
+    clients.forEach(client => {
+        if (client.ws.readyState === 1) {
+            client.ws.send(JSON.stringify({
+                event: "comments",
+                postId: Number(id)
+            }));
         }
     });
 
@@ -200,7 +249,18 @@ router.post("/like/comments/:id", auth, async (req, res) => {
         content: "likes your comment",
         postId: comment.postId,
         userId: user.id
-    })
+    });
+
+    if (comment) {
+        clients.forEach(client => {
+            if (client.ws.readyState === 1) {
+                client.ws.send(JSON.stringify({
+                    event: "comments",
+                    postId: comment.postId
+                }));
+            }
+        });
+    }
 
     res.json({ like });
 });
@@ -209,12 +269,27 @@ router.delete("/unlike/comments/:id", auth, async (req, res) => {
     const { id } = req.params;
     const user = res.locals.user;
 
+    const comment = await prisma.comment.findUnique({
+        where: { id: Number(id) }
+    });
+
     await prisma.commentLike.deleteMany({
         where: {
             commentId: Number(id),
             userId: Number(user.id)
         }
     });
+
+    if (comment) {
+        clients.forEach(client => {
+            if (client.ws.readyState === 1) {
+                client.ws.send(JSON.stringify({
+                    event: "comments",
+                    postId: comment.postId
+                }));
+            }
+        });
+    }
 
     res.json({ message: `Unlike post ${id}` });
 });
