@@ -6,9 +6,9 @@ const { auth, isOwner} = require("../middlewares/auth");
 const prisma = require("../prismaClient");
 const {clients} = require("./ws");
 
-function broadcastToAll(event) {
+function broadcastToAll(event, excludeUserId = null) {
     clients.forEach(client => {
-        if (client.ws.readyState === 1) {
+        if (client.ws.readyState === 1 && client.userId !== excludeUserId) {
             client.ws.send(JSON.stringify({ event }));
             console.log(`WS: event sent to ${client.userId}: ${event}`);
         }
@@ -84,7 +84,7 @@ router.post("/posts", auth, async (req, res) => {
             }
         });
 
-        broadcastToAll("posts");
+        broadcastToAll("posts", user.id);
 
         res.json(data);
     } catch (e) {
@@ -94,6 +94,8 @@ router.post("/posts", auth, async (req, res) => {
 
 router.delete("/posts/:id", auth, isOwner("post"), async (req, res) => {
     const { id } = req.params;
+    const user = res.locals.user;
+
     try {
         await prisma.comment.deleteMany({
             where: { postId: Number(id) }
@@ -103,9 +105,9 @@ router.delete("/posts/:id", auth, isOwner("post"), async (req, res) => {
             where: { id: Number(id) }
         });
 
-        broadcastToAll("posts");
-
         res.sendStatus(204);
+
+        broadcastToAll("posts", user.id);
     } catch (e) {
         res.status(500).json({ error: e });
     }
